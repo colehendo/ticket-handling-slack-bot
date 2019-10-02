@@ -1,0 +1,10 @@
+{
+    "dev": {
+        "app_function": "dostack.app",
+        "aws_region": "us-east-1",
+        "profile_name": "default",
+        "project_name": "dostack",
+        "runtime": "python3.6",
+        "s3_bucket": "zappa-yg1tlpcs5"
+    }
+}
