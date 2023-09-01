@@ -1,33 +1,18 @@
-from flask import Flask, request, make_response, Response
-import os
 import json
-import time
-import re
-from slackclient import SlackClient
-from slackeventsapi import SlackEventAdapter
 
-# Slack bot user token taken from the environment
-SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
-SLACK_VERIFICATION_TOKEN = os.environ["SLACK_VERIFICATION_TOKEN"]
+from flask import Flask, request, make_response, Response
+from time import sleep
 
-# Slack client for Web API requests
-slack_client = SlackClient(SLACK_BOT_TOKEN)
+from attachment_constants import BUTTON_ATTACHMENTS_NO_TEXT_ADDED, BUTTON_ATTACHMENTS_NO_TEXT_ADDED, NEXT_BUTTON_ATTACHMENTS
+from command_handler import handle_command, parse_bot_commands
+from slack_utils import SLACK_CLIENT, verify_slack_token
 
-# Variables used for listener loop
-EXAMPLE_COMMAND = "ticket"
-MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 
-# Flask localhost webserver for incoming traffic from Slack
 app = Flask(__name__)
-slack_events_adapter = SlackEventAdapter(SLACK_VERIFICATION_TOKEN, "/slack/events", app)
 
-started = False
+selection_value = trigger_id = selected_action = selected_stack = selected_from = selected_to = selected_horse = selected_pi = selected_pse = selected_info = None
+
 done = False
-
-# Variables to store user input
-starterbot_id = selection_value = trigger_id = selected_action = selected_stack = selected_from = selected_to = selected_horse = selected_pi = selected_pse = selected_info = None
-
-# Bool variables that dictate the flow of stackbot
 make_selection = True
 temp_message_ts = ""
 code_needed = False
@@ -41,61 +26,6 @@ edit = False
 edit_cau_info = False
 edit_cau_info_submit = False
 
-# Helper for verifying that requests came from Slack
-def verify_slack_token(request_token):
-    if SLACK_VERIFICATION_TOKEN != request_token:
-        print("Error: invalid verification token!")
-        print("Received {} but was expecting {}".format(request_token, SLACK_VERIFICATION_TOKEN))
-        return make_response("Request contains invalid Slack verification token", 403)
-
-def parse_bot_commands(slack_events):
-    """
-        Parses a list of events coming from the Slack RTM API to find bot commands.
-        If a bot command is found, this function returns a tuple of command and channel.
-        If its not found, then this function returns None, None.
-    """
-    for event in slack_events:
-        if event["type"] == "message" and not "subtype" in event:
-            user_id, message = parse_direct_mention(event["text"])
-            if user_id == starterbot_id:
-                return message, event["channel"]
-    return None, None
-
-def parse_direct_mention(message_text):
-    """
-        Finds a direct mention (a mention that is at the beginning) in message text
-        and returns the user ID which was mentioned. If there is no direct mention, returns None
-    """
-    matches = re.search(MENTION_REGEX, message_text)
-    # the first group contains the username, the second group contains the remaining message
-    return (matches.group(1), matches.group(2).strip()) if matches else (None, None)
-
-def handle_command(command, channel):
-    global started
-    """
-        Executes bot command if the command is known
-    """
-
-    # Finds and executes the given command, filling in response
-    response = "Not sure what you mean. Try *{}*.".format(EXAMPLE_COMMAND)
-    if command.startswith(EXAMPLE_COMMAND):
-        response = slack_client.api_call(
-            "chat.postMessage",
-            channel = "SAMPLE-CHANNEL",
-            text = "What do you want to do?",
-            attachments = attachments_action
-        )
-
-    # Sends the response back to the channel
-    slack_client.api_call(
-        "chat.postMessage",
-        channel=channel,
-        text=response
-    )
-    response = None
-
-
-# The endpoint Slack will load your menu options from
 @app.route("/slack/message_options", methods=["POST"])
 def message_options():
     
@@ -148,7 +78,6 @@ def message_options():
     return Response(json.dumps(current_options), mimetype='application/json')
 
 
-# The endpoint Slack will send the user's menu selection to
 @app.route("/slack/message_actions", methods=["POST"])
 def message_actions():
     # This essentially imports the variables from the beginning for use in the function
@@ -189,36 +118,36 @@ def message_actions():
         if print_add:
             selected_info = form_json["submission"]["extra_info"]
             if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*Additional Information:* " + selected_info,
-                    attachments = attachments_buttons_no_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             elif selection_value == "Clone":
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*Additional Information:* " + selected_info,
-                    attachments = attachments_buttons_no_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             elif selection_value == "Clone and Upgrade":
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse + "\n*Additional Information:* " + selected_info,
-                    attachments = attachments_buttons_no_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             else:
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse + "\n*Additional Information:* " + selected_info,
-                    attachments = attachments_buttons_no_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
 
         # This executes if the user clicks the edit button
@@ -243,81 +172,81 @@ def message_actions():
                 # Sends a next button which takes you to the additional information field
                 if selection_value == "Clone and Upgrade":
                     edit_cau_info = True
-                    slack_client.api_call(
+                    SLACK_CLIENT.api_call(
                         "chat.update",
                         channel = "SAMPLE-CHANNEL",
                         ts = temp_message_ts,
-                        attachments = attachments_next_button,
+                        attachments = NEXT_BUTTON_ATTACHMENTS,
                         text = ""
                     )
                 # This sends all the buttons out, minus the add button
                 else:
                     selected_info = form_json["submission"]["edited_info"]
                     if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
                             text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*Additional Information:* " + selected_info,
-                            attachments = attachments_buttons_no_add
+                            attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                             )
                     elif selection_value == "Clone":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
                             text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*Additional Information:* " + selected_info,
-                            attachments = attachments_buttons_no_add
+                            attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                         )
                     elif selection_value == "Clone and Upgrade":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
                             text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse + "\n*Additional Information:* " + selected_info,
-                            attachments = attachments_buttons_no_add
+                            attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                         )
                     else:
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
                             text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse + "\n*Additional Information:* " + selected_info,
-                            attachments = attachments_buttons_no_add
+                            attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                         )
             # This sends all the buttons out again
             else:
                 if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                    slack_client.api_call(
+                    SLACK_CLIENT.api_call(
                         "chat.update",
                         channel = "SAMPLE-CHANNEL",
                         ts = temp_message_ts,
                         text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack,
-                        attachments = attachments_buttons_add
+                        attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                     )
                 elif selection_value == "Clone":
-                    slack_client.api_call(
+                    SLACK_CLIENT.api_call(
                         "chat.update",
                         channel = "SAMPLE-CHANNEL",
                         ts = temp_message_ts,
                         text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to,
-                        attachments = attachments_buttons_add
+                        attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                     )
                 elif selection_value == "Clone and Upgrade":
-                    slack_client.api_call(
+                    SLACK_CLIENT.api_call(
                         "chat.update",
                         channel = "SAMPLE-CHANNEL",
                         ts = temp_message_ts,
                         text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse,
-                        attachments = attachments_buttons_add
+                        attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                     )
                 else:
-                    slack_client.api_call(
+                    SLACK_CLIENT.api_call(
                         "chat.update",
                         channel = "SAMPLE-CHANNEL",
                         ts = temp_message_ts,
                         text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse,
-                        attachments = attachments_buttons_add
+                        attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                     )
 
         # This records the submission for additional information for Clone and Upgrade
@@ -325,12 +254,12 @@ def message_actions():
         elif edit_cau_info_submit:
             edit_cau_info_submit = False
             selected_info = form_json["submission"]["edited_info"]
-            slack_client.api_call(
+            SLACK_CLIENT.api_call(
                 "chat.update",
                 channel = "SAMPLE-CHANNEL",
                 ts = temp_message_ts,
                 text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*Horse Version:* " + selected_horse + "\n*HI Version:* " + selected_pi + "\n*HSE Version:* " + selected_pse + "\n*Additional Information:* " + selected_info,
-                attachments = attachments_buttons_no_add
+                attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
             )
                 
 
@@ -340,22 +269,22 @@ def message_actions():
             if selection_value == "Clone":
                 selected_from = form_json["submission"]["clone_from"]
                 selected_to = form_json["submission"]["clone_to"]
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "DB86VU0AX",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to,
-                    attachments = attachments_buttons_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             # This stores the value of stack name submitted and sends the preview and buttons to slack
             else:
                 selected_stack = form_json["submission"]["stack_selection"]
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack,
-                    attachments = attachments_buttons_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             # This says we don't need the code versions box
             code_needed = False               
@@ -375,11 +304,11 @@ def message_actions():
             # This turns on the function that records that the next button has been clicked and sends out following info
             next_button = True
             # This sends the next button to slack
-            slack_client.api_call(
+            SLACK_CLIENT.api_call(
                 "chat.update",
                 channel = "SAMPLE-CHANNEL",
                 ts = temp_message_ts,
-                attachments = attachments_next_button,
+                attachments = NEXT_BUTTON_ATTACHMENTS,
                 text = ""
             )
         # This is the function called after the submission of the code versions box
@@ -395,22 +324,22 @@ def message_actions():
                 # This ensures the code versions box won't pop up again
                 next_button = False
                 # This sends out the second next button
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
-                    attachments = attachments_next_button,
+                    attachments = NEXT_BUTTON_ATTACHMENTS,
                     text = ""
                 )
             # If no selection was specify branch/version, and the initial selection was clone and upgrade, this executes
             elif selection_value == "Clone and Upgrade":
                 # This sends out the add text/finish buttons
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*horse Version:* " + selected_horse + "\n*PI Version:* " + selected_pi + "\n*PSE Version:* " + selected_pse,
-                    attachments = attachments_buttons_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
                 # This opens the function that handles the clicking of add text/finish
                 last_buttons = True
@@ -419,12 +348,12 @@ def message_actions():
             # If no selection was specify branch/version, and the initial selection was create or upgrade, this executes
             else:
                 # This sends out the add text/finish buttons
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*horse Version:* " + selected_horse + "\n*PI Version:* " + selected_pi + "\n*PSE Version:* " + selected_pse,
-                    attachments = attachments_buttons_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
                 # This opens the function that handles the clicking of add text/finish
                 last_buttons = True
@@ -443,20 +372,20 @@ def message_actions():
                 selected_pse = form_json["submission"]["pse_spec"]
             # This sends out the add text/finish buttons
             if selection_value == "Clone and Upgrade":
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Copy stack from:* " + selected_from + "\n*Copy stack to:* " + selected_to + "\n*horse Version:* " + selected_horse + "\n*PI Version:* " + selected_pi + "\n*PSE Version:* " + selected_pse,
-                    attachments = attachments_buttons_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             else:
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
                     text = "*Action:* " + selection_value + " Stack\n*Stack:* " + selected_stack + "\n*horse Version:* " + selected_horse + "\n*PI Version:* " + selected_pi + "\n*PSE Version:* " + selected_pse,
-                    attachments = attachments_buttons_add
+                    attachments = BUTTON_ATTACHMENTS_NO_TEXT_ADDED
                 )
             # This opens the function that handles the clicking of add text/finish
             last_buttons = True
@@ -471,7 +400,7 @@ def message_actions():
         if next_button:
             if form_json["actions"][0]["value"] == "quit":
                 done = True
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
@@ -483,7 +412,7 @@ def message_actions():
                 print_next = True
                 temp_message_ts = form_json["message_ts"]
                 # This sends out the box
-                open_dialog = slack_client.api_call(
+                open_dialog = SLACK_CLIENT.api_call(
                     "dialog.open",
                     trigger_id = form_json["trigger_id"],
                     dialog = {
@@ -573,7 +502,7 @@ def message_actions():
         elif second_next:
             if form_json["actions"][0]["value"] == "quit":
                 done = True
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
@@ -589,7 +518,7 @@ def message_actions():
                 # The following runs through every possible combination of specification selections
                 # It then sends out the box with the necessary text fields that match the selections
                 if selected_horse == "specify" and selected_pi == "specify" and selected_pse == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -619,7 +548,7 @@ def message_actions():
                         }
                     )
                 elif selected_horse == "specify" and selected_pi == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -643,7 +572,7 @@ def message_actions():
                         }
                     )
                 elif selected_horse == "specify" and selected_pse == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -667,7 +596,7 @@ def message_actions():
                         }
                     )
                 elif selected_pi == "specify" and selected_pse == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -691,7 +620,7 @@ def message_actions():
                         }
                     )
                 elif selected_horse == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -709,7 +638,7 @@ def message_actions():
                         }
                     )
                 elif selected_pi == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -727,7 +656,7 @@ def message_actions():
                         }
                     )
                 elif selected_pse == "specify":
-                    open_dialog = slack_client.api_call(
+                    open_dialog = SLACK_CLIENT.api_call(
                         "dialog.open",
                         trigger_id = form_json["trigger_id"],
                         dialog = {
@@ -755,7 +684,7 @@ def message_actions():
             edit_cau_info = False
             if form_json["actions"][0]["value"] == "quit":
                 done = True
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
@@ -764,7 +693,7 @@ def message_actions():
                 )
             else:
                 edit_cau_info_submit = True
-                open_dialog = slack_client.api_call(
+                open_dialog = SLACK_CLIENT.api_call(
                     "dialog.open",
                     trigger_id = form_json["trigger_id"],
                     dialog = {
@@ -794,7 +723,7 @@ def message_actions():
                     # The following prints a box with the previously submitted text fields
                     # based on your initial selection
                     if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -812,7 +741,7 @@ def message_actions():
                             }
                         )
                     elif selection_value == "Clone":
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -836,7 +765,7 @@ def message_actions():
                             }
                         )
                     elif selection_value == "Clone and Upgrade":
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -878,7 +807,7 @@ def message_actions():
                             }
                         )
                     else:
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -918,7 +847,7 @@ def message_actions():
                     # The following prints a box with the previously submitted text fields and the additional info field
                     # based on your initial selection
                     if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -943,7 +872,7 @@ def message_actions():
                             }
                         )
                     elif selection_value == "Clone":
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -974,7 +903,7 @@ def message_actions():
                             }
                         )
                     elif selection_value == "Clone and Upgrade":
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -1016,7 +945,7 @@ def message_actions():
                             }
                         )
                     else:
-                        open_dialog = slack_client.api_call(
+                        open_dialog = SLACK_CLIENT.api_call(
                             "dialog.open",
                             trigger_id = form_json["trigger_id"],
                             dialog = {
@@ -1065,7 +994,7 @@ def message_actions():
                 if selected_info == None:
                     # The following prints the jirio command based on your initial selection
                     if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1073,7 +1002,7 @@ def message_actions():
                             text = ":checkered_flag: Please copy and paste the following into <#C0UJWRKHU>:\n`/jirio create task " + selection_value + " " + selected_stack + "`"
                         )
                     elif selection_value == "Clone":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1081,7 +1010,7 @@ def message_actions():
                             text = ":checkered_flag: Please copy and paste the following into <#C0UJWRKHU>:\n`/jirio create task " + selection_value + " Stack from " + selected_from + " to " + selected_to + "`"
                         )
                     elif selection_value == "Clone and Upgrade":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1089,7 +1018,7 @@ def message_actions():
                             text = ":checkered_flag: Please copy and paste the following into <#C0UJWRKHU>:\n`/jirio create task " + selection_value + " Stack from " + selected_from + " to " + selected_to + ". Horse: " + selected_horse + " -- PI: " + selected_pi + " -- PSE: " + selected_pse + "`"
                         )
                     else:
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1100,7 +1029,7 @@ def message_actions():
                 else:
                     # The following prints the jirio command based on your initial selection plus the extra info
                     if selection_value == "Delete" or selection_value == "Archive" or selection_value == "Unarchive":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1108,7 +1037,7 @@ def message_actions():
                             text = ":checkered_flag: Please copy and paste the following into <#C0UJWRKHU>:\n`/jirio create task " + selection_value + " " + selected_stack + ". " + selected_info + "`"
                         )
                     elif selection_value == "Clone":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1116,7 +1045,7 @@ def message_actions():
                             text = ":checkered_flag: Please copy and paste the following into <#C0UJWRKHU>:\n`/jirio create task " + selection_value + " Stack from " + selected_from + " to " + selected_to + ". " + selected_info + "`"
                         )
                     elif selection_value == "Clone and Upgrade":
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1124,7 +1053,7 @@ def message_actions():
                             text = ":checkered_flag: Please copy and paste the following into <#C0UJWRKHU>:\n`/jirio create task " + selection_value + " Stack from " + selected_from + " to " + selected_to + ". Horse: " + selected_horse + " -- PI: " + selected_pi + " -- PSE: " + selected_pse + ". " + selected_info + "`"
                         )
                     else:
-                        slack_client.api_call(
+                        SLACK_CLIENT.api_call(
                             "chat.update",
                             channel = "SAMPLE-CHANNEL",
                             ts = temp_message_ts,
@@ -1139,7 +1068,7 @@ def message_actions():
                 # This enables the function that handles the submitted extra text
                 print_add = True
                 # This sends out the additional info text box
-                open_dialog = slack_client.api_call(
+                open_dialog = SLACK_CLIENT.api_call(
                     "dialog.open",
                     trigger_id = form_json["trigger_id"],
                     dialog = {
@@ -1163,7 +1092,7 @@ def message_actions():
                 # This restarts the ticket
                 done = True
                 # This sends a quit message out
-                slack_client.api_call(
+                SLACK_CLIENT.api_call(
                     "chat.update",
                     channel = "SAMPLE-CHANNEL",
                     ts = temp_message_ts,
@@ -1179,7 +1108,7 @@ def message_actions():
             # This enables the reset listener loop
             done = True
             # This sends out the other error message
-            slack_client.api_call(
+            SLACK_CLIENT.api_call(
                 "chat.update",
                 channel = "SAMPLE-CHANNEL",
                 ts = form_json["message_ts"],
@@ -1194,7 +1123,7 @@ def message_actions():
             code_needed = True
             make_selection = False
             temp_message_ts = form_json["message_ts"]
-            open_dialog = slack_client.api_call(
+            open_dialog = SLACK_CLIENT.api_call(
                 "dialog.open",
                 trigger_id = form_json["trigger_id"],
                 dialog = {
@@ -1216,7 +1145,7 @@ def message_actions():
             code_needed = True
             make_selection = False
             temp_message_ts = form_json["message_ts"]
-            open_dialog = slack_client.api_call(
+            open_dialog = SLACK_CLIENT.api_call(
                 "dialog.open",
                 trigger_id = form_json["trigger_id"],
                 dialog = {
@@ -1241,7 +1170,7 @@ def message_actions():
     # This function starts the listener again, and resets the variables
     if done:
         # The following line was in the original code, but broke the new code. Leave just incase
-        # if slack_client.rtm_connect(with_team_state=False):
+        # if SLACK_CLIENT.rtm_connect(with_team_state=False):
         # The following bullions reset all the variables of the bot in order to restart it
         done = False
         make_selection = True
@@ -1256,140 +1185,13 @@ def message_actions():
         # This prints to the commandline as a test to make sure it is running
         print("Stack Bot connected and running!")
             # Read bot's user ID by calling Web API method `auth.test`
-        starterbot_id = slack_client.api_call("auth.test")["user_id"]
+        starterbot_id = SLACK_CLIENT.api_call("auth.test")["user_id"]
         # This loop sits and listens for @stackbot ticket to be sent
         while True:
-            command, channel = parse_bot_commands(slack_client.rtm_read())
+            command, channel = parse_bot_commands(SLACK_CLIENT.rtm_read(), starterbot_id)
             if command:
                 handle_command(command, channel)
-            time.sleep(1)
+            sleep(1)
                 
     # Send an HTTP 200 response with empty body so Slack knows we're done here
     return make_response("", 200)
-
-# A Dictionary of initial message options
-attachments_action = [
-    {
-        "fallback": "Upgrade your Slack client to use messages like these.",
-        "color": "#228B22",
-        "attachment_type": "default",
-        "callback_id": "attachments_action",
-        "actions": [
-            {
-                "name": "pick_action",
-                "text": "Pick an action...",
-                "type": "select",
-                "data_source": "external"
-            }
-        ]
-    }
-]
-
-# The attachment for the next button
-attachments_next_button = [
-    {
-        "fallback": "Upgrade your Slack client to use messages like these.",
-        "color": "#228B22",
-        "attachment_type": "default",
-        "callback_id": "attachments_next",
-        "actions": [
-            {
-                "name": "first_list",
-                "text": "Next",
-                "style": "primary",
-                "type": "button",
-                "value": "next"
-            },
-            {
-                "name": "first_list",
-                "text": "Quit",
-                "style": "danger",
-                "type": "button",
-                "value": "quit"
-            }
-        ]
-    }
-]
-
-# The attachment for edit, finish, and cancel buttons
-attachments_buttons_no_add = [
-    {
-        "fallback": "Upgrade your Slack client to use messages like these.",
-        "text": "If this looks correct, click *Finish* to generate your ticket. Otherwise, click *Edit*, or *Cancel* to start over.",
-        "color": "#228B22",
-        "attachment_type": "default",
-        "callback_id": "double_button",
-        "actions": [
-            {
-                "name": "edit_button",
-                "text": "Edit",
-                "type": "button",
-                "value": "edit"
-            },
-            {
-                "name": "finish_button",
-                "text": "Finish",
-                "style": "primary",
-                "type": "button",
-                "value": "finish"
-            },
-            {
-                "name": "cancel_button",
-                "text": "Quit",
-                "style": "danger",
-                "type": "button",
-                "value": "quit"
-            }
-        ]
-    }
-]
-
-# The attachment for all buttons minus the preview button
-attachments_buttons_add = [
-    {
-        "fallback": "Upgrade your Slack client to use messages like these.",
-        "text": "If this looks correct, click *Finish* to generate your ticket. Otherwise, click *Edit*, or *Cancel* to start over.\nTo add additional information, click *Add Text*.",
-        "color": "#228B22",
-        "attachment_type": "default",
-        "callback_id": "double_button",
-        "actions": [
-            {
-                "name": "add_text",
-                "text": "Add Text",
-                "type": "button",
-                "value": "add"
-            },
-            {
-                "name": "edit_button",
-                "text": "Edit",
-                "type": "button",
-                "value": "edit"
-            },
-            {
-                "name": "finish_button",
-                "text": "Finish",
-                "style": "primary",
-                "type": "button",
-                "value": "finish"
-            },
-            {
-                "name": "cancel_button",
-                "text": "Quit",
-                "style": "danger",
-                "type": "button",
-                "value": "quit"
-            }
-        ]
-    }
-]
-
-# This is the initial listener when the file is run
-if slack_client.rtm_connect(with_team_state=False):
-    print("Stack Bot connected and running!")
-    # Read bot's user ID by calling Web API method `auth.test`
-    starterbot_id = slack_client.api_call("auth.test")["user_id"]
-    while True:
-        command, channel = parse_bot_commands(slack_client.rtm_read())
-        if command:
-            handle_command(command, channel)
-        time.sleep(1)
