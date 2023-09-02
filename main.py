@@ -6,7 +6,6 @@ from command_handler import handle_command, parse_bot_commands
 from slack_utils import SLACK_CLIENT
 
 
-
 def main():
     if SLACK_CLIENT.rtm_connect(with_team_state=False):
         print("Stack Bot connected and running!")

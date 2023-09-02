@@ -16,24 +16,73 @@ ACTION_ATTACHMENTS = [
     }
 ]
 
+ACTION_OPTIONS = {
+    "options": [
+        {
+            "text": "Create Stack",
+            "value": "Create"
+        },
+        {
+            "text": "Clone Stack",
+            "value": "Clone"
+        },
+        {
+            "text": "Upgrade Stack",
+            "value": "Upgrade"
+        },
+        {
+            "text": "Clone and Upgrade Stack",
+            "value": "Clone and Upgrade"
+        },
+        {
+            "text": "Delete Stack",
+            "value": "Delete"
+        },
+        {
+            "text": "Archive Stack",
+            "value": "Archive"
+        },
+        {
+            "text": "Unarchive Stack",
+            "value": "Unarchive"
+        },
+        {
+            "text": "Other",
+            "value": "other"
+        }
+    ]
+}
 
-# The attachment for the next button
-NEXT_BUTTON_ATTACHMENTS = [
+# The attachment for all buttons minus the preview button
+BUTTON_ATTACHMENTS_TEXT_ADDED = [
     {
         "fallback": "Upgrade your Slack client to use messages like these.",
+        "text": "If this looks correct, click *Finish* to generate your ticket. Otherwise, click *Edit*, or *Cancel* to start over.\nTo add additional information, click *Add Text*.",
         "color": "#228B22",
         "attachment_type": "default",
-        "callback_id": "attachments_next",
+        "callback_id": "double_button",
         "actions": [
             {
-                "name": "first_list",
-                "text": "Next",
-                "style": "primary",
+                "name": "add_text",
+                "text": "Add Text",
                 "type": "button",
-                "value": "next"
+                "value": "add"
             },
             {
-                "name": "first_list",
+                "name": "edit_button",
+                "text": "Edit",
+                "type": "button",
+                "value": "edit"
+            },
+            {
+                "name": "finish_button",
+                "text": "Finish",
+                "style": "primary",
+                "type": "button",
+                "value": "finish"
+            },
+            {
+                "name": "cancel_button",
                 "text": "Quit",
                 "style": "danger",
                 "type": "button",
@@ -76,36 +125,23 @@ BUTTON_ATTACHMENTS_NO_TEXT_ADDED = [
     }
 ]
 
-# The attachment for all buttons minus the preview button
-BUTTON_ATTACHMENTS_TEXT_ADDED = [
+# The attachment for the next button
+NEXT_BUTTON_ATTACHMENTS = [
     {
         "fallback": "Upgrade your Slack client to use messages like these.",
-        "text": "If this looks correct, click *Finish* to generate your ticket. Otherwise, click *Edit*, or *Cancel* to start over.\nTo add additional information, click *Add Text*.",
         "color": "#228B22",
         "attachment_type": "default",
-        "callback_id": "double_button",
+        "callback_id": "attachments_next",
         "actions": [
             {
-                "name": "add_text",
-                "text": "Add Text",
-                "type": "button",
-                "value": "add"
-            },
-            {
-                "name": "edit_button",
-                "text": "Edit",
-                "type": "button",
-                "value": "edit"
-            },
-            {
-                "name": "finish_button",
-                "text": "Finish",
+                "name": "first_list",
+                "text": "Next",
                 "style": "primary",
                 "type": "button",
-                "value": "finish"
+                "value": "next"
             },
             {
-                "name": "cancel_button",
+                "name": "first_list",
                 "text": "Quit",
                 "style": "danger",
                 "type": "button",
