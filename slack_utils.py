@@ -21,5 +21,5 @@ def get_starterbot_id():
 def verify_slack_token(request_token):
     if SLACK_VERIFICATION_TOKEN != request_token:
         print("Error: invalid verification token!")
-        print("Received {} but was expecting {}".format(request_token, SLACK_VERIFICATION_TOKEN))
+        print(f"Received {request_token} but was expecting {SLACK_VERIFICATION_TOKEN}")
         return make_response("Request contains invalid Slack verification token", 403)

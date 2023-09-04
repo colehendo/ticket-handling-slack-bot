@@ -34,8 +34,7 @@ def handle_command(command, channel):
     """
 
     example_command = "ticket"
-
-    response = "Not sure what you mean. Try *{}*.".format(example_command)
+    
     if command.startswith(example_command):
         response = SLACK_CLIENT.api_call(
             "chat.postMessage",
@@ -43,10 +42,11 @@ def handle_command(command, channel):
             text = "What do you want to do?",
             attachments = ACTION_ATTACHMENTS
         )
+    else:
+        response = f"Not sure what you mean. Try *{example_command}*."
 
     SLACK_CLIENT.api_call(
         "chat.postMessage",
         channel=channel,
         text=response
     )
-    response = None

@@ -16,43 +16,6 @@ ACTION_ATTACHMENTS = [
     }
 ]
 
-ACTION_OPTIONS = {
-    "options": [
-        {
-            "text": "Create Stack",
-            "value": "Create"
-        },
-        {
-            "text": "Clone Stack",
-            "value": "Clone"
-        },
-        {
-            "text": "Upgrade Stack",
-            "value": "Upgrade"
-        },
-        {
-            "text": "Clone and Upgrade Stack",
-            "value": "Clone and Upgrade"
-        },
-        {
-            "text": "Delete Stack",
-            "value": "Delete"
-        },
-        {
-            "text": "Archive Stack",
-            "value": "Archive"
-        },
-        {
-            "text": "Unarchive Stack",
-            "value": "Unarchive"
-        },
-        {
-            "text": "Other",
-            "value": "other"
-        }
-    ]
-}
-
 # The attachment for all buttons minus the preview button
 BUTTON_ATTACHMENTS_TEXT_ADDED = [
     {
